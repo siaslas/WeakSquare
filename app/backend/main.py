@@ -356,12 +356,9 @@ async def calculate_classification(board, move, moving_color):
     expected_after = None
     expected_points_loss = None
     classification = None
-
-    if before_score is not None:
-        before_white_score = before_score.white().score(mate_score=10000)
-        if before_white_score is not None:
-            before_player_score = score_for_player(before_white_score, moving_color)
-            expected_before = expected_points_from_cp(before_player_score)
+    
+    perspective = moving_color
+    before_result = calc_score_result(before_score, perspective)
 
     board.push(move)
 
@@ -369,14 +366,33 @@ async def calculate_classification(board, move, moving_color):
         after_info = await active_engine.analyse(board, chess.engine.Limit(depth=15))
     after_score = after_info.get("score")
 
-    if after_score is not None:
-        after_white_score = after_score.white().score(mate_score=10000)
-        if after_white_score is not None:
-            after_player_score = score_for_player(after_white_score, moving_color)
-            expected_after = expected_points_from_cp(after_player_score)
+    after_result = calc_score_result(after_score, perspective)
 
-    if expected_before is not None and expected_after is not None:
+    if before_result["cp"] is not None and after_result["cp"] is not None:
+        expected_before = expected_points_from_cp(before_result["cp"])
+        expected_after = expected_points_from_cp(after_result["cp"])
         expected_points_loss = expected_before - expected_after
         classification = classify_expected_points_loss(expected_points_loss)
 
     return (classification, expected_before, expected_after, expected_points_loss)
+
+def calc_score_result(score, perspective):
+    result = {
+                "kind": "unavailable",
+                "cp": None,
+                "mate_in": None,
+              }
+    if score is None:
+        return result
+
+    povScore = score.pov(perspective)
+
+    if povScore.is_mate():
+        result["kind"] = "mate"
+        result["mate_in"] = povScore.mate()
+    else:
+        result["kind"] = "cp"
+        result["cp"] = povScore.score()
+
+    return result 
+
