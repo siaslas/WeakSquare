@@ -16,12 +16,11 @@ from contextlib import asynccontextmanager
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from database import db_engine, Base, get_db
+from database import db_engine, get_db
 from models import Game, MoveAnalysis
 from move_classifier import classify_expected_points_loss, expected_points_from_cp, score_for_player
 
 engine: chess.engine.UciProtocol | None = None
-Base.metadata.create_all(bind=db_engine)
 engine_lock = asyncio.Lock()
 logger = logging.getLogger(__name__)
 
@@ -93,12 +92,16 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
 
     if game is None:
         return {"error": "Invalid or empty PGN file"}
+    
+    white_elo, black_elo = get_elo(game, chess.WHITE), get_elo(game, chess.BLACK)
 
     db_game = Game(
         pgn_hash=pgn_hash,
         raw_pgn=raw_pgn,
         white_player=game.headers.get("White"),
         black_player=game.headers.get("Black"),
+        white_elo=white_elo,
+        black_elo=black_elo,
         event=game.headers.get("Event"),
         site=game.headers.get("Site"),
         round_tag=game.headers.get("Round"),
@@ -140,8 +143,9 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
             moving_color = board.turn
             fen_before = board.fen()
             san = board.san(move)
+            elo = white_elo if moving_color == chess.WHITE else black_elo
 
-            classification, expected_before, expected_after, expected_points_loss = await calculate_classification(board, move, moving_color)
+            classification, expected_before, expected_after, expected_points_loss = await calculate_classification(board, move, moving_color, elo)
             fen_after = board.fen()
 
             moves.append({
@@ -197,6 +201,16 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
         "headers": dict(game.headers),
         "moves": moves
     }
+
+def get_elo(game, color):
+    rating = None
+    value = game.headers.get("WhiteElo") if color == chess.WHITE else game.headers.get("BlackElo")
+
+    try:
+        rating = int(value) if value is not None else None
+    except ValueError:
+        pass
+    return rating
 
 @app.post("/evaluate")
 async def evaluate(payload: EvaluateRequest):
@@ -342,11 +356,14 @@ async def get_classification_data(gameId: int, db: Session=Depends(get_db)):
         "classification": classifications
         }
 
-async def calculate_classification(board, move, moving_color):
+async def calculate_classification(board, move, moving_color, elo):
     active_engine = engine
 
     if active_engine is None:
         raise RuntimeError("Engine is not initialized")
+
+    if board.legal_moves.count() == 1:
+        return ("forced", None, None, None)
 
     async with engine_lock:
         before_info = await active_engine.analyse(board, chess.engine.Limit(depth=15))

@@ -10,6 +10,8 @@ class Game(Base):
     pgn_hash = Column(String, unique=True, nullable=False)
     white_player = Column(String)
     black_player = Column(String)
+    white_elo = Column(Integer)
+    black_elo = Column(Integer)
     event = Column(String)
     site = Column(String)
     round_tag = Column(String)
