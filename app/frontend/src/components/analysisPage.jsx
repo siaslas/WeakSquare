@@ -11,6 +11,7 @@ import goodIcon from "../assets/chess_move_icons_svg_set/good.svg";
 import inaccuracyIcon from "../assets/chess_move_icons_svg_set/inaccuracy.svg";
 import mistakeIcon from "../assets/chess_move_icons_svg_set/mistake.svg";
 import blunderIcon from "../assets/chess_move_icons_svg_set/blunder.svg";
+import forcedIcon from "../assets/chess_move_icons_svg_set/forced.svg";
 
 const classificationMap = {
   best: bestIcon,
@@ -18,14 +19,13 @@ const classificationMap = {
   good: goodIcon,
   inaccuracy: inaccuracyIcon,
   mistake: mistakeIcon,
-  blunder: blunderIcon, 
+  blunder: blunderIcon,
+  forced: forcedIcon,
 }
 
 function ChessBoard({chessGame, chessPosition, setChessPosition, moveList, moveIndex, goToMove, currentMoveToSquare, currentClassification}){
     const [moveFrom, setMoveFrom] = useState('');
     const [optionSquares, setOptionSquares] = useState({});
-
-    console.log(currentClassification);
 
     useEffect(() => {
       setMoveFrom('');
@@ -169,6 +169,8 @@ function ChessBoard({chessGame, chessPosition, setChessPosition, moveList, moveI
     }
 
     function classificationOverlayRenderer ({square, children}) {
+        const classificationIcon = classificationMap[currentClassification];
+
         return (
           <div style={{
             position: "relative",
@@ -177,9 +179,9 @@ function ChessBoard({chessGame, chessPosition, setChessPosition, moveList, moveI
             ...optionSquares[square]
           }}>
             {children}
-            {square === currentMoveToSquare && currentClassification && (
+            {square === currentMoveToSquare && classificationIcon && (
               <img
-                src={classificationMap[currentClassification]}
+                src={classificationIcon}
                 style={{
                   position: "absolute",
                   top: -12,
@@ -215,15 +217,38 @@ function ChessBoard({chessGame, chessPosition, setChessPosition, moveList, moveI
     return <Chessboard options={chessboardOptions} />;
 }
 
+function MoveAnalysisDetails({analysis}) {
+  const classification = !analysis
+    ? "Select a move"
+    : analysis.is_forced
+      ? "Forced"
+      : analysis.classification ?? "Not classified";
+  const loss = analysis?.expected_points_loss;
+
+  return (
+    <section className="rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-center text-slate-700 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Classification</p>
+      <p className="mb-3 font-semibold capitalize">{classification}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected-points loss</p>
+      <p className="font-semibold">
+        {loss !== null && loss !== undefined ? loss.toFixed(3) : "Not applicable"}
+      </p>
+    </section>
+  );
+}
+
 export default function Analysis({analysisProps}){
   const [boardSize, setBoardSize] = useState(560);
-  const {moveList, chessPosition, goToMove} = analysisProps;
+  const {moveList, chessPosition, goToMove, currentMoveAnalysis} = analysisProps;
   const moveListWidth = 400;
   const panelGap = 35;
 
   return (
   <>
     <div className="flex max-w-[1500px] mx-auto mt-[100px] gap-[35px] justify-center">
+      <aside className="w-[180px] self-start">
+        <MoveAnalysisDetails analysis={currentMoveAnalysis} />
+      </aside>
       <ResizableBoard boardSize={boardSize} onResize={setBoardSize}>
         <ChessBoard {...analysisProps} />
       </ResizableBoard>
