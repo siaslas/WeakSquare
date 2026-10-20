@@ -2,7 +2,7 @@ import {useState} from 'react';
 import axios from 'axios';
 import GamesList from './gamesList';
 
-function FileUploader({onGameLoaded, setClassificationList}) {
+function FileUploader({onGameLoaded, setMoveAnalyses}) {
   const [selectedFile, setSelectedFile] = useState(null);
 
 	const onFileChange = (e) => { 
@@ -12,12 +12,8 @@ function FileUploader({onGameLoaded, setClassificationList}) {
   const onFileUpload = async () => {
     if (!selectedFile) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const pgn = reader.result;
-      onGameLoaded(pgn);
-    };
-    reader.readAsText(selectedFile);
+    const pgn = await selectedFile.text();
+    onGameLoaded(pgn);
 
     // Send pgn file to the backend
 		const formData = new FormData();
@@ -27,8 +23,8 @@ function FileUploader({onGameLoaded, setClassificationList}) {
       formData
     )
     .then((res) => {
-      if (res.data.moves) {
-        setClassificationList(res.data.moves.map((move) => move.classification));
+      if (res.data.analyses) {
+        setMoveAnalyses(res.data.analyses);
       }
 
     })
@@ -50,11 +46,11 @@ function FileUploader({onGameLoaded, setClassificationList}) {
 	);
 }
 
-export default function GamesPage({onGameLoaded, setClassificationList}){
+export default function GamesPage({onGameLoaded, setMoveAnalyses}){
   return(
     <>
-      <FileUploader onGameLoaded={onGameLoaded} setClassificationList={setClassificationList}/>
-      <GamesList onGameLoaded={onGameLoaded} setClassification={setClassificationList}/>
+      <FileUploader onGameLoaded={onGameLoaded} setMoveAnalyses={setMoveAnalyses}/>
+      <GamesList onGameLoaded={onGameLoaded} setMoveAnalyses={setMoveAnalyses}/>
     </>
   );
 }

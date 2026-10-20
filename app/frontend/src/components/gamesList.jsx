@@ -21,7 +21,7 @@ async function retrieveClassificationData(gameId){
     );
 
     if (res.data.status === "complete"){
-      return res.data.classification;
+      return res.data.analyses;
     }
 
     await wait(1000);
@@ -30,7 +30,7 @@ async function retrieveClassificationData(gameId){
   throw new Error("Game analysis times out");
 }
 
-export default function GamesList({onGameLoaded, setClassification}){
+export default function GamesList({onGameLoaded, setMoveAnalyses}){
   const [games, setGames] = useState([]);
   const [loadingGameId, setloadingGameId] = useState(null);
   const [error, setError] = useState("");
@@ -56,10 +56,9 @@ export default function GamesList({onGameLoaded, setClassification}){
     setError("");
 
     try {
-      const classifications = await retrieveClassificationData(gameId);
+      const analyses = await retrieveClassificationData(gameId);
       onGameLoaded(pgn);
-      console.log(classifications);
-      setClassification(classifications);
+      setMoveAnalyses(analyses);
       navigate("/analysis"); 
     } catch (requestError) {
       console.error(requestError.response?.data ?? requestError);

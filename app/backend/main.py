@@ -145,17 +145,7 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
             )
             return {
                 "headers": dict(game.headers),
-                "moves": [
-                    {
-                        "uci": row.move_uci,
-                        "fen_before": row.fen_before,
-                        "expected_points_before": row.expected_points_before,
-                        "expected_points_after": row.expected_points_after,
-                        "expected_points_loss": row.expected_points_loss,
-                        "classification": row.classification,
-                    }
-                    for row in stored_analyses
-                ],
+                "analyses": [serialize_move_analysis(row) for row in stored_analyses],
             }
 
         if db_game.analysis_status in {"pending", "analyzing"}:
@@ -173,7 +163,7 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
 
     try:
         board = game.board()
-        moves = []
+        analyses = []
         move_analysis_rows = [] # Stores move classifications
         node = game
         ply_index = 0
@@ -188,17 +178,22 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
             elo = white_elo if moving_color == chess.WHITE else black_elo
 
             analysis = await calculate_classification(board, move, moving_color, elo)
-            fen_after = board.fen()
 
-            moves.append({
-                "uci": move.uci(),
+            analyses.append({
+                "ply_index": ply_index,
+                "move_uci": move.uci(),
                 "san": san,
                 "fen_before": fen_before,
-                "fen_after": fen_after,
+                "moving_color": "white" if moving_color == chess.WHITE else "black",
+                "eval_before": serialize_engine_evaluation(analysis.eval_before),
+                "eval_after": serialize_engine_evaluation(analysis.eval_after),
                 "expected_points_before": analysis.expected_points_before,
                 "expected_points_after": analysis.expected_points_after,
                 "expected_points_loss": analysis.expected_points_loss,
                 "classification": analysis.classification,
+                "is_forced": analysis.is_forced,
+                "analysis_status": analysis.analysis_status,
+                "skipped_reason": analysis.skipped_reason,
             })
 
             # Storing the result of the calculations
@@ -252,7 +247,7 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
 
     return {
         "headers": dict(game.headers),
-        "moves": moves
+        "analyses": analyses,
     }
 
 def get_elo(game, color):
@@ -264,6 +259,52 @@ def get_elo(game, color):
     except ValueError:
         pass
     return rating
+
+
+def serialize_engine_evaluation(evaluation):
+    if evaluation is None:
+        return None
+
+    return {
+        "kind": evaluation.kind,
+        "cp": evaluation.cp,
+        "mate_in": evaluation.mate_in,
+    }
+
+
+def serialize_move_analysis(row):
+    return {
+        "ply_index": row.ply_index,
+        "move_uci": row.move_uci,
+        "san": row.san,
+        "fen_before": row.fen_before,
+        "moving_color": row.moving_color,
+        "eval_before": (
+            {
+                "kind": row.eval_before_kind,
+                "cp": row.eval_before_cp,
+                "mate_in": row.eval_before_mate_in,
+            }
+            if row.eval_before_kind is not None
+            else None
+        ),
+        "eval_after": (
+            {
+                "kind": row.eval_after_kind,
+                "cp": row.eval_after_cp,
+                "mate_in": row.eval_after_mate_in,
+            }
+            if row.eval_after_kind is not None
+            else None
+        ),
+        "expected_points_before": row.expected_points_before,
+        "expected_points_after": row.expected_points_after,
+        "expected_points_loss": row.expected_points_loss,
+        "classification": row.classification,
+        "is_forced": row.is_forced,
+        "analysis_status": row.analysis_status,
+        "skipped_reason": row.skipped_reason,
+    }
 
 @app.post("/evaluate")
 async def evaluate(payload: EvaluateRequest):
@@ -383,7 +424,7 @@ async def get_classification_data(gameId: int, db: Session=Depends(get_db)):
             status_code=202,
             content={
                 "status": game.analysis_status,
-                "classification": [],
+                "analyses": [],
             }
         )
 
@@ -394,20 +435,16 @@ async def get_classification_data(gameId: int, db: Session=Depends(get_db)):
         )
     
     rows = (
-        db.query(MoveAnalysis.classification)
+        db.query(MoveAnalysis)
         .filter(MoveAnalysis.game_id == gameId)
         .order_by(MoveAnalysis.ply_index)
         .all()
     )
-
-    classifications = [
-        row.classification for row in rows
-    ]
     
     return {
         "status": "complete",
-        "classification": classifications
-        }
+        "analyses": [serialize_move_analysis(row) for row in rows],
+    }
 
 async def calculate_classification(board, move, moving_color, elo):
     active_engine = engine

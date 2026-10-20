@@ -10,7 +10,7 @@ function App() {
   const [chessGame, setChessGame] = useState(() => new Chess());
   const [chessPosition, setChessPosition] = useState(() => chessGame.fen());
   const [moveList, setMoveList] = useState([]);
-  const [classificationList, setClassificationList] = useState([]); // This stores the chess move classification for each move
+  const [analysesByPly, setAnalysesByPly] = useState({});
   const [moveIndex, setMoveIndex] = useState(0);
 
   function syncMoveIndex(update) {
@@ -32,12 +32,21 @@ function App() {
 
     setMoveList(game.history({verbose: true}));
     setMoveIndex(0);
+    setAnalysesByPly({});
     chessGame.reset();
     setChessPosition(chessGame.fen());
-  } 
+  }
+
+  function loadMoveAnalyses(analyses = []) {
+    const nextAnalysesByPly = Object.fromEntries(
+      analyses.map((analysis) => [analysis.ply_index, analysis])
+    );
+    setAnalysesByPly(nextAnalysesByPly);
+  }
 
   const currentMove = moveIndex > 0 ? moveList[moveIndex-1] : null;
-  const currentClassification = moveIndex > 0 ? classificationList[moveIndex-1]: null;
+  const currentMoveAnalysis = moveIndex > 0 ? analysesByPly[moveIndex - 1] : null;
+  const currentClassification = currentMoveAnalysis?.classification;
   const analysisProps = { chessGame,
                           chessPosition,
                           setChessPosition, 
@@ -45,7 +54,8 @@ function App() {
                           moveIndex, 
                           goToMove: syncMoveIndex,
                           currentMoveToSquare: currentMove?.to,
-                          currentClassification
+                          currentClassification,
+                          currentMoveAnalysis,
                         };
 
   return (
@@ -54,7 +64,7 @@ function App() {
         <h1 className="mb-[2rem]">WeakSquare</h1>
         <NavBar />
         <Routes>
-          <Route path="/" element={<GamesPage onGameLoaded={loadGameFromPgn} setClassificationList={setClassificationList} />} />
+          <Route path="/" element={<GamesPage onGameLoaded={loadGameFromPgn} setMoveAnalyses={loadMoveAnalyses} />} />
           <Route path="/analysis" element={<AnalysisPage analysisProps={analysisProps}/>} />
         </Routes>
       </div>
