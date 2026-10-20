@@ -1,5 +1,5 @@
 from database import Base
-from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, Boolean, TIMESTAMP, Text, text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -44,8 +44,19 @@ class MoveAnalysis(Base):
     )
     ply_index = Column(Integer, nullable=False)
     move_uci = Column(String, nullable=False)
+    san = Column(String)
     fen_before = Column(Text, nullable=False)
+    moving_color = Column(String)
+    eval_before_kind = Column(String)
+    eval_before_cp = Column(Integer)
+    eval_before_mate_in = Column(Integer)
+    eval_after_kind = Column(String)
+    eval_after_cp = Column(Integer)
+    eval_after_mate_in = Column(Integer)
     expected_points_before = Column(Float)
     expected_points_after = Column(Float)
     expected_points_loss = Column(Float)
     classification = Column(String)
+    is_forced = Column(Boolean)
+    analysis_status = Column(String)
+    skipped_reason = Column(String)

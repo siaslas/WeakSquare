@@ -207,11 +207,22 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
                     game_id=game_id,
                     ply_index=ply_index,
                     move_uci=move.uci(),
+                    san=san,
                     fen_before=fen_before,
+                    moving_color="white" if moving_color == chess.WHITE else "black",
+                    eval_before_kind=analysis.eval_before.kind if analysis.eval_before else None,
+                    eval_before_cp=analysis.eval_before.cp if analysis.eval_before else None,
+                    eval_before_mate_in=analysis.eval_before.mate_in if analysis.eval_before else None,
+                    eval_after_kind=analysis.eval_after.kind if analysis.eval_after else None,
+                    eval_after_cp=analysis.eval_after.cp if analysis.eval_after else None,
+                    eval_after_mate_in=analysis.eval_after.mate_in if analysis.eval_after else None,
                     expected_points_before=analysis.expected_points_before,
                     expected_points_after=analysis.expected_points_after,
                     expected_points_loss=analysis.expected_points_loss,
                     classification=analysis.classification,
+                    is_forced=analysis.is_forced,
+                    analysis_status=analysis.analysis_status,
+                    skipped_reason=analysis.skipped_reason,
                 )
             )
 
