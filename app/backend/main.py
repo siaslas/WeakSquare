@@ -18,7 +18,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from database import db_engine, get_db
 from models import Game, MoveAnalysis
-from move_classifier import classify_expected_points_loss, expected_points_from_cp, score_for_player
+from move_classifier import (
+    EngineEvaluation,
+    MoveClassificationResult,
+    classify_expected_points_loss,
+    expected_points_from_cp,
+    score_for_player,
+)
 
 engine: chess.engine.UciProtocol | None = None
 engine_lock = asyncio.Lock()
@@ -145,7 +151,7 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
             san = board.san(move)
             elo = white_elo if moving_color == chess.WHITE else black_elo
 
-            classification, expected_before, expected_after, expected_points_loss = await calculate_classification(board, move, moving_color, elo)
+            analysis = await calculate_classification(board, move, moving_color, elo)
             fen_after = board.fen()
 
             moves.append({
@@ -153,10 +159,10 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
                 "san": san,
                 "fen_before": fen_before,
                 "fen_after": fen_after,
-                "expected_points_before": expected_before,
-                "expected_points_after": expected_after,
-                "expected_points_loss": expected_points_loss,
-                "classification": classification,
+                "expected_points_before": analysis.expected_points_before,
+                "expected_points_after": analysis.expected_points_after,
+                "expected_points_loss": analysis.expected_points_loss,
+                "classification": analysis.classification,
             })
 
             # Storing the result of the calculations
@@ -166,10 +172,10 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
                     ply_index=ply_index,
                     move_uci=move.uci(),
                     fen_before=fen_before,
-                    expected_points_before=expected_before,
-                    expected_points_after=expected_after,
-                    expected_points_loss=expected_points_loss,
-                    classification=classification, 
+                    expected_points_before=analysis.expected_points_before,
+                    expected_points_after=analysis.expected_points_after,
+                    expected_points_loss=analysis.expected_points_loss,
+                    classification=analysis.classification,
                 )
             )
 
@@ -363,17 +369,21 @@ async def calculate_classification(board, move, moving_color, elo):
         raise RuntimeError("Engine is not initialized")
 
     if board.legal_moves.count() == 1:
-        return ("forced", None, None, None)
+        return MoveClassificationResult(
+            classification="forced",
+            eval_before=None,
+            eval_after=None,
+            expected_points_before=None,
+            expected_points_after=None,
+            expected_points_loss=None,
+            is_forced=True,
+            analysis_status="forced",
+        )
 
     async with engine_lock:
         before_info = await active_engine.analyse(board, chess.engine.Limit(depth=15))
     before_score = before_info.get("score")
 
-    expected_before = None
-    expected_after = None
-    expected_points_loss = None
-    classification = None
-    
     perspective = moving_color
     before_result = calc_score_result(before_score, perspective)
 
@@ -385,31 +395,45 @@ async def calculate_classification(board, move, moving_color, elo):
 
     after_result = calc_score_result(after_score, perspective)
 
-    if before_result["cp"] is not None and after_result["cp"] is not None:
-        expected_before = expected_points_from_cp(before_result["cp"])
-        expected_after = expected_points_from_cp(after_result["cp"])
+    if before_result.cp is not None and after_result.cp is not None:
+        expected_before = expected_points_from_cp(before_result.cp, elo)
+        expected_after = expected_points_from_cp(after_result.cp, elo)
         expected_points_loss = expected_before - expected_after
-        classification = classify_expected_points_loss(expected_points_loss)
+        return MoveClassificationResult(
+            classification=classify_expected_points_loss(expected_points_loss),
+            eval_before=before_result,
+            eval_after=after_result,
+            expected_points_before=expected_before,
+            expected_points_after=expected_after,
+            expected_points_loss=expected_points_loss,
+            is_forced=False,
+            analysis_status="evaluated",
+        )
 
-    return (classification, expected_before, expected_after, expected_points_loss)
+    skipped_reason = (
+        "mate_score"
+        if before_result.kind == "mate" or after_result.kind == "mate"
+        else "engine_score_unavailable"
+    )
+    return MoveClassificationResult(
+        classification=None,
+        eval_before=before_result,
+        eval_after=after_result,
+        expected_points_before=None,
+        expected_points_after=None,
+        expected_points_loss=None,
+        is_forced=False,
+        analysis_status="skipped",
+        skipped_reason=skipped_reason,
+    )
 
 def calc_score_result(score, perspective):
-    result = {
-                "kind": "unavailable",
-                "cp": None,
-                "mate_in": None,
-              }
     if score is None:
-        return result
+        return EngineEvaluation(kind="unavailable")
 
     povScore = score.pov(perspective)
 
     if povScore.is_mate():
-        result["kind"] = "mate"
-        result["mate_in"] = povScore.mate()
-    else:
-        result["kind"] = "cp"
-        result["cp"] = povScore.score()
+        return EngineEvaluation(kind="mate", mate_in=povScore.mate())
 
-    return result 
-
+    return EngineEvaluation(kind="cp", cp=povScore.score())

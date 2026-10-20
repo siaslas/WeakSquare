@@ -3,10 +3,9 @@
 ## Collaboration style
 
 - Do not provide complete solutions to LeetCode, NeetCode, or mathematical problems unless the user explicitly asks for the solution.
-- When helping build this project, prioritize explanation, design reasoning, and guided implementation over pasting complete code.
-- Provide small examples, pseudocode, interfaces, or focused snippets when they help the user think through an implementation.
+- The user has authorized the agent to implement project changes. Implement requested work directly, then present the resulting diff, rationale, and focused review points.
 - Before making a substantial change, briefly explain the intended approach, important tradeoffs, and likely edge cases.
-- Encourage the user to make the key implementation decisions and offer review or debugging help for their attempts.
+- Keep the user involved through concise explanations and review guidance, but do not wait for them to write implementation code unless they explicitly ask to take it on.
 - Do not assume that a request for diagnosis authorizes implementation; explain the issue first unless a fix is explicitly requested.
 
 ## Project context

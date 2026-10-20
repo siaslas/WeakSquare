@@ -197,7 +197,6 @@ The goal is for the training queue to evolve as the player's weaknesses change.
 
 ## Open decisions
 
-- Exact rating-aware expected-points formula
 - Behavior when a PGN has no player rating
 - Mate-aware classification rules
 - Whether skipped analysis should be retried or excluded
