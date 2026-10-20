@@ -30,7 +30,7 @@ async function retrieveClassificationData(gameId){
   throw new Error("Game analysis times out");
 }
 
-export default function GamesList({onGameLoaded, setMoveAnalyses}){
+export default function GamesList({onAnalysisSelected}){
   const [games, setGames] = useState([]);
   const [loadingGameId, setloadingGameId] = useState(null);
   const [error, setError] = useState("");
@@ -57,8 +57,7 @@ export default function GamesList({onGameLoaded, setMoveAnalyses}){
 
     try {
       const analyses = await retrieveClassificationData(gameId);
-      onGameLoaded(pgn);
-      setMoveAnalyses(analyses);
+      onAnalysisSelected(pgn, analyses);
       navigate("/analysis"); 
     } catch (requestError) {
       console.error(requestError.response?.data ?? requestError);

@@ -46,11 +46,11 @@ function FileUploader({onGameLoaded, setMoveAnalyses}) {
 	);
 }
 
-export default function GamesPage({onGameLoaded, setMoveAnalyses}){
+export default function GamesPage({onGameLoaded, setMoveAnalyses, onAnalysisSelected}){
   return(
     <>
       <FileUploader onGameLoaded={onGameLoaded} setMoveAnalyses={setMoveAnalyses}/>
-      <GamesList onGameLoaded={onGameLoaded} setMoveAnalyses={setMoveAnalyses}/>
+      <GamesList onAnalysisSelected={onAnalysisSelected}/>
     </>
   );
 }

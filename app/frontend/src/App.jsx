@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import {Routes, Route} from 'react-router-dom';
+import {Navigate, Routes, Route} from 'react-router-dom';
 import {Chess} from 'chess.js';
 
 import NavBar from './components/navBar.jsx';
@@ -12,6 +12,7 @@ function App() {
   const [moveList, setMoveList] = useState([]);
   const [analysesByPly, setAnalysesByPly] = useState({});
   const [moveIndex, setMoveIndex] = useState(0);
+  const [hasSelectedAnalysis, setHasSelectedAnalysis] = useState(false);
 
   function syncMoveIndex(update) {
     const nextMoveIndex = typeof update === "function" ? update(moveIndex) : update;
@@ -33,6 +34,7 @@ function App() {
     setMoveList(game.history({verbose: true}));
     setMoveIndex(0);
     setAnalysesByPly({});
+    setHasSelectedAnalysis(false);
     chessGame.reset();
     setChessPosition(chessGame.fen());
   }
@@ -42,6 +44,12 @@ function App() {
       analyses.map((analysis) => [analysis.ply_index, analysis])
     );
     setAnalysesByPly(nextAnalysesByPly);
+  }
+
+  function selectAnalysis(pgn, analyses) {
+    loadGameFromPgn(pgn);
+    loadMoveAnalyses(analyses);
+    setHasSelectedAnalysis(true);
   }
 
   const currentMove = moveIndex > 0 ? moveList[moveIndex-1] : null;
@@ -62,10 +70,17 @@ function App() {
     <div className="flex">
       <div className="min-h-screen w-[100vw]">
         <h1 className="mb-[2rem]">WeakSquare</h1>
-        <NavBar />
+        <NavBar canAnalyze={hasSelectedAnalysis} />
         <Routes>
-          <Route path="/" element={<GamesPage onGameLoaded={loadGameFromPgn} setMoveAnalyses={loadMoveAnalyses} />} />
-          <Route path="/analysis" element={<AnalysisPage analysisProps={analysisProps}/>} />
+          <Route path="/" element={<GamesPage onGameLoaded={loadGameFromPgn} setMoveAnalyses={loadMoveAnalyses} onAnalysisSelected={selectAnalysis} />} />
+          <Route
+            path="/analysis"
+            element={
+              hasSelectedAnalysis
+                ? <AnalysisPage analysisProps={analysisProps}/>
+                : <Navigate to="/" replace />
+            }
+          />
         </Routes>
       </div>
     </div>
