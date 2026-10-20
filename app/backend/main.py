@@ -120,17 +120,53 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
     )
 
     db.add(db_game)
+    is_new_game = True
     try:
         db.commit()
         db.refresh(db_game)
 
     except IntegrityError:
         db.rollback()
+        is_new_game = False
 
         db_game = (
             db.query(Game)
             .filter(Game.pgn_hash == pgn_hash)
             .one()
+        )
+
+    if not is_new_game:
+        if db_game.analysis_status == "complete":
+            stored_analyses = (
+                db.query(MoveAnalysis)
+                .filter(MoveAnalysis.game_id == db_game.id)
+                .order_by(MoveAnalysis.ply_index)
+                .all()
+            )
+            return {
+                "headers": dict(game.headers),
+                "moves": [
+                    {
+                        "uci": row.move_uci,
+                        "fen_before": row.fen_before,
+                        "expected_points_before": row.expected_points_before,
+                        "expected_points_after": row.expected_points_after,
+                        "expected_points_loss": row.expected_points_loss,
+                        "classification": row.classification,
+                    }
+                    for row in stored_analyses
+                ],
+            }
+
+        if db_game.analysis_status in {"pending", "analyzing"}:
+            return JSONResponse(
+                status_code=202,
+                content={"status": db_game.analysis_status},
+            )
+
+        return JSONResponse(
+            status_code=409,
+            content={"status": "failed", "detail": "Stored analysis previously failed"},
         )
 
     game_id = db_game.id
