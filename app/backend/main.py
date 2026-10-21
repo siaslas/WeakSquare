@@ -27,8 +27,13 @@ from move_classifier import (
     score_for_player,
 )
 
+# PGN classification and interactive board analysis intentionally use separate
+# Stockfish sessions. Cancelling an SSE stream must never desynchronize the
+# engine that persists a full game's analysis.
 engine: chess.engine.UciProtocol | None = None
+interactive_engine: chess.engine.UciProtocol | None = None
 engine_lock = asyncio.Lock()
+interactive_engine_lock = asyncio.Lock()
 logger = logging.getLogger(__name__)
 
 class EvaluateRequest(BaseModel):
@@ -36,10 +41,24 @@ class EvaluateRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global engine
-    transport, engine = await chess.engine.popen_uci("stockfish")
-    yield
-    await engine.quit()
+    global engine, interactive_engine
+
+    _, engine = await chess.engine.popen_uci("stockfish")
+    try:
+        _, interactive_engine = await chess.engine.popen_uci("stockfish")
+    except Exception:
+        await engine.quit()
+        engine = None
+        raise
+
+    try:
+        yield
+    finally:
+        for active_engine in (interactive_engine, engine):
+            if active_engine is not None:
+                await active_engine.quit()
+        interactive_engine = None
+        engine = None
 
 app = FastAPI(lifespan=lifespan)
 
@@ -222,6 +241,10 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
                 )
             )
 
+            # Traversal owns board advancement. Classification only inspects
+            # positions, so book and forced results cannot desynchronize the
+            # board from the PGN.
+            board.push(move)
             ply_index += 1
             node = next_node
 
@@ -309,14 +332,15 @@ def serialize_move_analysis(row):
 
 @app.post("/evaluate")
 async def evaluate(payload: EvaluateRequest):
-    if engine is None:
+    active_engine = interactive_engine
+    if active_engine is None:
         return {"error": "Engine not initialized"}
     
     pv_lines = []
 
     board = chess.Board(payload.fen)
-    async with engine_lock:
-        infoList = await engine.analyse(board, chess.engine.Limit(depth=15), multipv = 5)
+    async with interactive_engine_lock:
+        infoList = await active_engine.analyse(board, chess.engine.Limit(depth=15), multipv = 5)
 
     for infoDict in infoList:
         score = infoDict.get("score")
@@ -353,9 +377,12 @@ async def evaluate(payload: EvaluateRequest):
 
 async def generate_analysis_events(fen: str) -> AsyncIterator[str]:
     root_board = chess.Board(fen)
+    active_engine = interactive_engine
+    if active_engine is None:
+        raise RuntimeError("Interactive engine is not initialized")
 
-    async with engine_lock:
-        with await engine.analysis(
+    async with interactive_engine_lock:
+        with await active_engine.analysis(
             root_board,
             chess.engine.Limit(time=20),
             multipv=5,
@@ -395,7 +422,7 @@ async def generate_analysis_events(fen: str) -> AsyncIterator[str]:
 
 @app.get("/evaluate/stream", response_class=StreamingResponse)
 async def stream_evaluate(fen : str) -> StreamingResponse:
-    if engine is None:
+    if interactive_engine is None:
         raise HTTPException(
             status_code=503,
             detail="Engine not initialized"
@@ -484,10 +511,11 @@ async def calculate_classification(board, move, moving_color, elo, ply_index=Non
     perspective = moving_color
     before_result = calc_score_result(before_score, perspective)
 
-    board.push(move)
+    after_board = board.copy(stack=False)
+    after_board.push(move)
 
     async with engine_lock:
-        after_info = await active_engine.analyse(board, chess.engine.Limit(depth=15))
+        after_info = await active_engine.analyse(after_board, chess.engine.Limit(depth=15))
     after_score = after_info.get("score")
 
     after_result = calc_score_result(after_score, perspective)

@@ -95,6 +95,19 @@ class CalculateClassificationTests(unittest.TestCase):
         self.assertEqual(result.eval_after.cp, 20)
         self.assertEqual(result.classification, "good")
 
+    def test_classification_does_not_advance_the_game_board(self):
+        fake_engine = FakeEngine([white_cp(50), white_cp(40)])
+        main.engine = fake_engine
+        board = chess.Board()
+        move = chess.Move.from_uci("e2e4")
+
+        asyncio.run(main.calculate_classification(board, move, chess.WHITE, 1500))
+
+        self.assertEqual(board.fen(), chess.STARTING_FEN)
+        board.push(move)
+        self.assertEqual(board.turn, chess.BLACK)
+        self.assertEqual(board.piece_at(chess.E4).symbol(), "P")
+
     def test_forced_move_skips_engine_analysis(self):
         fake_engine = FakeEngine([])
         main.engine = fake_engine
