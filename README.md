@@ -150,6 +150,12 @@ python -m uvicorn main:app --reload --port 8000
 
 Interactive API documentation is available at <http://localhost:8000/docs>.
 
+### Optional local opening book
+
+Book-move classification uses a local Polyglot (`.bin`) book, so analysis has no runtime dependency on an external chess database. Download a book that you are permitted to use, extract it, and place it at `app/backend/assets/opening-book.bin`. Alternatively, set `OPENING_BOOK_PATH` to the book's absolute path in `app/backend/.env`.
+
+For a small development book, the community-maintained Polyglot collection lists `gm2001.bin` at about 0.46 MB; its underlying games are from 2001–2013 games by players rated at least 2530. Review the source book's terms before distributing it with the project. Without a local book, uploads simply use Stockfish for every non-forced move.
+
 ### Frontend
 
 In another terminal, from the repository root:

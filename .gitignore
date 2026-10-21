@@ -173,6 +173,7 @@ activemq-data/
 # Environments
 .env
 .envrc
+app/backend/assets/opening-book.bin
 .venv
 env/
 venv/

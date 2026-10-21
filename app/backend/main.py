@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from database import db_engine, get_db
 from models import Game, MoveAnalysis
+from opening_explorer import is_book_move
 from move_classifier import (
     EngineEvaluation,
     MoveClassificationResult,
@@ -177,7 +178,7 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
             san = board.san(move)
             elo = white_elo if moving_color == chess.WHITE else black_elo
 
-            analysis = await calculate_classification(board, move, moving_color, elo)
+            analysis = await calculate_classification(board, move, moving_color, elo, ply_index)
 
             analyses.append({
                 "ply_index": ply_index,
@@ -446,7 +447,7 @@ async def get_classification_data(gameId: int, db: Session=Depends(get_db)):
         "analyses": [serialize_move_analysis(row) for row in rows],
     }
 
-async def calculate_classification(board, move, moving_color, elo):
+async def calculate_classification(board, move, moving_color, elo, ply_index=None):
     active_engine = engine
 
     if active_engine is None:
@@ -462,6 +463,18 @@ async def calculate_classification(board, move, moving_color, elo):
             expected_points_loss=None,
             is_forced=True,
             analysis_status="forced",
+        )
+
+    if is_book_move(board, move, ply_index):
+        return MoveClassificationResult(
+            classification="book",
+            eval_before=None,
+            eval_after=None,
+            expected_points_before=None,
+            expected_points_after=None,
+            expected_points_loss=None,
+            is_forced=False,
+            analysis_status="book",
         )
 
     async with engine_lock:

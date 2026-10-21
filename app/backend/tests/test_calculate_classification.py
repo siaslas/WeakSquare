@@ -29,9 +29,16 @@ def white_mate(value):
 class CalculateClassificationTests(unittest.TestCase):
     def setUp(self):
         self.original_engine = main.engine
+        self.original_is_book_move = main.is_book_move
+
+        def no_book_move(*args, **kwargs):
+            return False
+
+        main.is_book_move = no_book_move
 
     def tearDown(self):
         main.engine = self.original_engine
+        main.is_book_move = self.original_is_book_move
 
     def classify_white_move(self, scores):
         fake_engine = FakeEngine(scores)
@@ -105,6 +112,29 @@ class CalculateClassificationTests(unittest.TestCase):
         self.assertEqual(result.classification, "forced")
         self.assertTrue(result.is_forced)
         self.assertEqual(result.analysis_status, "forced")
+        self.assertEqual(fake_engine.calls, 0)
+
+    def test_book_move_skips_engine_analysis(self):
+        def book_move(*args, **kwargs):
+            return True
+
+        main.is_book_move = book_move
+        fake_engine = FakeEngine([])
+        main.engine = fake_engine
+        board = chess.Board()
+
+        result = asyncio.run(
+            main.calculate_classification(
+                board,
+                chess.Move.from_uci("e2e4"),
+                chess.WHITE,
+                1500,
+            )
+        )
+
+        self.assertEqual(result.classification, "book")
+        self.assertEqual(result.analysis_status, "book")
+        self.assertFalse(result.is_forced)
         self.assertEqual(fake_engine.calls, 0)
 
     def test_mate_score_is_skipped_without_expected_points(self):

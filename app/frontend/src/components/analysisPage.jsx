@@ -12,6 +12,7 @@ import inaccuracyIcon from "../assets/chess_move_icons_svg_set/inaccuracy.svg";
 import mistakeIcon from "../assets/chess_move_icons_svg_set/mistake.svg";
 import blunderIcon from "../assets/chess_move_icons_svg_set/blunder.svg";
 import forcedIcon from "../assets/chess_move_icons_svg_set/forced.svg";
+import bookIcon from "../assets/chess_move_icons_svg_set/book.svg";
 
 const classificationMap = {
   best: bestIcon,
@@ -21,6 +22,7 @@ const classificationMap = {
   mistake: mistakeIcon,
   blunder: blunderIcon,
   forced: forcedIcon,
+  book: bookIcon,
 }
 
 function ChessBoard({chessGame, chessPosition, setChessPosition, moveList, moveIndex, goToMove, currentMoveToSquare, currentClassification}){

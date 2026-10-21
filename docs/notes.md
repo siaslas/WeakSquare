@@ -105,6 +105,7 @@ inaccuracy
 mistake
 blunder
 forced
+book
 ```
 
 The following categories are intentionally deferred because they require more context than expected-points loss alone:
@@ -112,8 +113,15 @@ The following categories are intentionally deferred because they require more co
 ```text
 great
 brilliant
-book
 ```
+
+## Book moves
+
+Book moves are identified before Stockfish analysis with a local Polyglot (`.bin`) opening book. A played move is classified as `book` when it is a recorded, positive-weight continuation within the first 20 plies.
+
+The book is not committed to the repository. Place one at `app/backend/assets/opening-book.bin`, or set `OPENING_BOOK_PATH` to its absolute path. A missing or unreadable book falls back to Stockfish analysis, so local development continues to work without one.
+
+Book moves are excluded from the training queue.
 
 Current MVP loss thresholds:
 
