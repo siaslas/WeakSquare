@@ -10,6 +10,10 @@ BASELINE_SCALE = 400
 RATING_SCALE_SLOPE = 0.1
 MINIMUM_SCALE = 250
 MAXIMUM_SCALE = 600
+EXCELLENT_MAX_LOSS = 0.02
+GOOD_MAX_LOSS = 0.05
+INACCURACY_MAX_LOSS = 0.10
+MISTAKE_MAX_LOSS = 0.20
 
 
 @dataclass(frozen=True)
@@ -53,12 +57,12 @@ def expected_points_from_cp(cp: int, rating: int | None = None) -> float:
 def classify_expected_points_loss(loss: float) -> str:
   if loss <= 0:
     return "best"
-  if loss <= 0.03:
+  if loss <= EXCELLENT_MAX_LOSS:
     return "excellent"
-  if loss <= 0.08:
+  if loss <= GOOD_MAX_LOSS:
     return "good"
-  if loss <= 0.15:
+  if loss <= INACCURACY_MAX_LOSS:
     return "inaccuracy"
-  if loss <= 0.3:
+  if loss <= MISTAKE_MAX_LOSS:
     return "mistake"
   return "blunder"

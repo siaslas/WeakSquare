@@ -1,6 +1,11 @@
 import unittest
 
-from move_classifier import EngineEvaluation, MoveClassificationResult, expected_points_from_cp
+from move_classifier import (
+    EngineEvaluation,
+    MoveClassificationResult,
+    classify_expected_points_loss,
+    expected_points_from_cp,
+)
 
 
 class ExpectedPointsFromCpTests(unittest.TestCase):
@@ -72,6 +77,29 @@ class MoveClassificationResultTests(unittest.TestCase):
 
         self.assertEqual(result.eval_before.mate_in, 3)
         self.assertEqual(result.skipped_reason, "mate_score")
+
+
+class ClassificationThresholdTests(unittest.TestCase):
+    def test_good_inaccuracy_boundary(self):
+        self.assertEqual(classify_expected_points_loss(0.05), "good")
+        self.assertEqual(classify_expected_points_loss(0.050001), "inaccuracy")
+
+    def test_expected_points_loss_buckets(self):
+        cases = (
+            (0.00, "best"),
+            (0.02, "excellent"),
+            (0.03, "good"),
+            (0.10, "inaccuracy"),
+            (0.20, "mistake"),
+            (0.200001, "blunder"),
+        )
+
+        for loss, expected_classification in cases:
+            with self.subTest(loss=loss):
+                self.assertEqual(
+                    classify_expected_points_loss(loss),
+                    expected_classification,
+                )
 
 
 if __name__ == "__main__":

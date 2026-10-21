@@ -115,18 +115,18 @@ brilliant
 book
 ```
 
-Current preliminary loss thresholds:
+Current MVP loss thresholds:
 
 ```text
 loss <= 0.00  -> best
-loss <= 0.03  -> excellent
-loss <= 0.08  -> good
-loss <= 0.15  -> inaccuracy
-loss <= 0.30  -> mistake
-loss >  0.30  -> blunder
+loss <= 0.02  -> excellent
+loss <= 0.05  -> good
+loss <= 0.10  -> inaccuracy
+loss <= 0.20  -> mistake
+loss >  0.20  -> blunder
 ```
 
-These thresholds are provisional and should be validated against analyzed games before being treated as final.
+The primary MVP boundary is between `good` and `inaccuracy`: moves with an expected-points loss greater than `0.05` are training candidates. The thresholds should still be validated against analyzed games before being treated as final.
 
 ## Engine scores and mate scores
 
@@ -182,9 +182,11 @@ Expected-points calculation is not required for this case.
 The first training rule can be simple:
 
 ```text
-if classification is mistake or blunder:
+if classification is inaccuracy, mistake, miss, or blunder:
     add the position before the move to the training queue
 ```
+
+Forced and skipped moves are excluded because the player either had no choice or does not yet have a usable expected-points classification.
 
 Later, training priority can incorporate:
 
